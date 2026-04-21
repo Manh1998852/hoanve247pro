@@ -6,6 +6,7 @@
     <title>Hệ Thống Hoàn Tiền 247 - VIP PRO FINAL</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <script type="module">
@@ -26,18 +27,22 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        window.curU = null; window.uStore = []; window.dStore = [];
+        window.updateUserCloud = (id, up) => update(ref(db, 'users/' + id), up);
+        window.saveUserToCloud = (u) => set(ref(db, 'users/' + u.id), u);
+        window.saveOrderToCloud = (o) => { const r = push(ref(db, 'orders')); o.id = r.key; return set(r, o); };
+        window.saveLogToCloud = (l) => { const r = push(ref(db, 'login_logs')); l.id = r.key; return set(r, l); };
+        window.updateOrderCloud = (id, up) => update(ref(db, 'orders/' + id), up);
+        window.deleteUserCloud = (id) => remove(ref(db, 'users/' + id));
+        window.deleteOrderCloud = (id) => remove(ref(db, 'orders/' + id));
+
+        window.curU = null; window.uStore = []; window.dStore = []; window.lStore = [];
 
         onValue(ref(db, 'users'), (snapshot) => {
-            const oldWithdraw = window.curU ? window.curU.canWithdraw : null;
             window.uStore = snapshot.val() ? Object.values(snapshot.val()) : [];
             if(!window.curU) checkSession();
             else {
                 const updatedMe = window.uStore.find(x => x.id === window.curU.id);
-                if(updatedMe) {
-                    window.curU = updatedMe;
-                    if(oldWithdraw === false && window.curU.canWithdraw === true) window.showToast("Quý khách làm lệnh rút tiền mới", "success");
-                }
+                if(updatedMe) window.curU = updatedMe;
             }
             refresh();
         });
@@ -47,53 +52,39 @@
             if(window.curU) refresh();
         });
 
-        window.updateUserCloud = (id, up) => update(ref(db, 'users/' + id), up);
-        window.saveUserToCloud = (u) => set(ref(db, 'users/' + u.id), u);
-        window.saveOrderToCloud = (o) => { const r = push(ref(db, 'orders')); o.id = r.key; return set(r, o); };
-        window.updateOrderCloud = (id, up) => update(ref(db, 'orders/' + id), up);
-        window.deleteUserCloud = (id) => remove(ref(db, 'users/' + id));
-        window.deleteOrderCloud = (id) => remove(ref(db, 'orders/' + id));
+        onValue(ref(db, 'login_logs'), (snapshot) => {
+            window.lStore = snapshot.val() ? Object.values(snapshot.val()).reverse() : [];
+            if(window.curU && window.curU.role === 'ADMIN') refresh();
+        });
     </script>
 
     <style>
         * { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background-color: #ecf0f5; overflow-x: hidden; margin:0; color: #333; }
-        
-        /* SIDEBAR MOBILE */
         .sidebar { background-color: #222d32; width: 230px; transition: 0.3s; flex-shrink: 0; z-index: 5000; height: 100vh; position: fixed; left: 0; top: 0; }
         .sidebar.collapsed { transform: translateX(-230px); }
         .main-content { transition: 0.3s; width: 100%; display: flex; flex-direction: column; min-height: 100vh; margin-left: 230px; }
         .main-content.full { margin-left: 0; }
-        
-        @media (max-width: 768px) {
-            .main-content { margin-left: 0; }
-            .sidebar:not(.collapsed) + .overlay { display: block; }
-        }
-
+        @media (max-width: 768px) { .main-content { margin-left: 0; } .sidebar:not(.collapsed) + .overlay { display: block; } }
         .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 4000; }
         .sidebar-item { color: #b8c7ce; padding: 15px 20px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; border-left: 3px solid transparent; font-size: 14px; font-weight: 500; }
         .sidebar-item:hover, .sidebar-item.active { background: #1e282c; color: #fff; border-left-color: #3c8dbc; }
-        
         .tab-content { display: none; padding: 10px; height: 100%; overflow-y: auto; }
         .tab-content.active { display: block; }
+        .table-responsive { width: 100%; overflow-x: auto; background: #fff; }
+        table { border-collapse: collapse; min-width: 1200px; width: 100%; table-layout: fixed; }
+        th { background-color: #f4f4f4; border: 1px solid #ddd; padding: 12px 8px; font-weight: 700; text-transform: uppercase; font-size: 10px; color: #444; }
+        td { border: 1px solid #ddd; padding: 10px 8px; font-size: 11px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
-        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff; }
-        table { border-collapse: collapse; min-width: 800px; width: 100%; }
-        th { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; font-weight: 700; text-transform: uppercase; font-size: 10px; }
-        td { border: 1px solid #ddd; padding: 10px; font-size: 11px; font-weight: 600; }
+        .col-user { width: 110px; } .col-owner { width: 160px; } .col-bank { width: 110px; } .col-acc { width: 130px; } .col-code { width: 110px; } .col-money { width: 120px; } .col-time { width: 150px; } .col-status { width: 100px; } .col-action { width: 180px; } .col-reason { width: 180px; }
 
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 6000; align-items: center; justify-content: center; padding: 15px; }
         .modal.active { display: flex; }
         .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 450px; position: relative; border-top: 5px solid #3c8dbc; max-height: 90vh; overflow-y: auto; }
-        
         .input-pro-box { position: relative; width: 100%; }
         .input-pro-box i { position: absolute; left: 12px; top: 38px; color: #a0aec0; }
         .input-pro { width: 100%; padding: 12px 15px 12px 42px; border: 1px solid #d1d5db; border-radius: 8px; outline: none; font-size: 14px; font-weight: 600; }
-        
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
-        .shake { animation: shake 0.4s ease-in-out; }
-        .spinner-slow { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 3px solid #fff; width: 18px; height: 18px; animation: spin 2s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .label-small { display: block; font-size: 10px; font-weight: 700; color: #666; text-transform: uppercase; margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -104,9 +95,9 @@
         <div id="loginCard" class="bg-white p-8 md:p-10 rounded-xl shadow-2xl w-full max-w-[440px] text-center border-t-8 border-blue-600">
             <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800 mb-2">Login Account</h1>
             <p class="text-gray-400 text-xs md:text-sm mb-8 font-medium">Hệ thống hoàn tiền vé máy bay</p>
-            <div class="input-pro-box mb-5 text-left"><label class="text-[10px] font-bold text-gray-500 uppercase ml-1">Username</label><i class="fas fa-user"></i><input type="text" id="lUser" placeholder="Tên đăng nhập" class="input-pro uppercase"></div>
-            <div class="input-pro-box mb-8 text-left"><label class="text-[10px] font-bold text-gray-500 uppercase ml-1">Password</label><i class="fas fa-lock"></i><input type="password" id="lPass" placeholder="Mật khẩu" class="input-pro"></div>
-            <button onclick="handleLogin()" class="w-full bg-[#2b6cb0] text-white py-4 rounded-lg font-bold uppercase transition active:scale-95 shadow-lg">Login</button>
+            <div class="input-pro-box mb-5 text-left"><label class="label-small">Username</label><i class="fas fa-user"></i><input type="text" id="lUser" placeholder="Tên đăng nhập" class="input-pro uppercase"></div>
+            <div class="input-pro-box mb-8 text-left"><label class="label-small">Password</label><i class="fas fa-lock"></i><input type="password" id="lPass" placeholder="Mật khẩu" class="input-pro"></div>
+            <button onclick="handleLogin()" id="btnLoginSubmit" class="w-full bg-[#2b6cb0] text-white py-4 rounded-lg font-bold uppercase transition active:scale-95 shadow-lg">Login</button>
             <div id="loginErrorMsg" class="hidden mt-4 p-3 bg-red-50 text-red-600 rounded-lg font-bold text-xs"></div>
         </div>
     </div>
@@ -119,179 +110,224 @@
                 <div class="text-white text-[11px] uppercase font-bold"><p id="topName"></p><p class="text-green-400 italic">Trực tuyến</p></div>
             </div>
             <nav id="mainNav" class="flex-1 mt-2"></nav>
-            <div onclick="handleLogout()" class="sidebar-item text-red-400 border-t border-gray-700 font-bold uppercase mt-auto"><i class="fas fa-power-off"></i> <span class="ml-2">Đăng xuất</span></div>
+            <div onclick="handleLogout()" class="sidebar-item text-red-400 border-t border-gray-700 font-bold uppercase mt-auto cursor-pointer"><i class="fas fa-power-off"></i> <span class="ml-2">Đăng xuất</span></div>
         </div>
 
         <div class="main-content full" id="mainContent">
             <header class="h-14 bg-[#3c8dbc] flex items-center justify-between px-4 text-white shadow-md sticky top-0 z-40">
                 <button onclick="toggleSidebar()" class="p-2 text-2xl"><i class="fas fa-bars"></i></button>
-                <span id="topClock" class="font-mono font-bold text-sm bg-black/20 px-3 py-1 rounded-full">00:00</span>
+                <span id="topClockHeader" class="font-mono font-bold text-sm bg-black/20 px-3 py-1 rounded-full">00:00:00</span>
                 <div id="roleLabel" class="text-[9px] font-bold bg-white text-[#3c8dbc] px-3 py-1 rounded-full uppercase">...</div>
             </header>
 
             <main class="flex-1 overflow-x-hidden">
-                <div id="a-users" class="tab-content">
-                    <div class="bg-white rounded shadow-md border-t-4 border-green-500 overflow-hidden">
-                        <div class="p-4 bg-gray-50 border-b flex justify-between items-center font-bold uppercase text-[10px]">
-                            <span>Quản lý thành viên</span>
-                            <button onclick="openUMFolder('add')" class="bg-green-600 text-white px-3 py-2 rounded shadow"><i class="fas fa-plus mr-1"></i> THÊM</button>
-                        </div>
-                        <div class="table-responsive">
-                            <table><thead><tr><th>Họ tên</th><th>Tài khoản</th><th>Gmail</th><th>MK</th><th class="text-center">Login</th><th class="text-center">Rút</th><th class="text-center">Sửa/Xóa</th></tr></thead><tbody id="u-list-body"></tbody></table>
-                        </div>
+                <div id="a-dash" class="tab-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+                        <div class="bg-white p-6 rounded shadow border-l-4 border-blue-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Thành viên</p><h3 id="stat-users" class="text-xl font-black">0</h3></div>
+                        <div class="bg-white p-6 rounded shadow border-l-4 border-gray-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Tổng lệnh</p><h3 id="stat-orders" class="text-xl font-black">0</h3></div>
+                        <div class="bg-white p-6 rounded shadow border-l-4 border-orange-500 animate-pulse"><p class="text-orange-600 text-[10px] font-bold uppercase">Lệnh chờ</p><h3 id="stat-pending" class="text-xl font-black text-orange-600">0</h3></div>
+                        <div class="bg-white p-6 rounded shadow border-l-4 border-green-500"><p class="text-gray-400 text-[10px] font-bold uppercase">Tiền đã hoàn</p><h3 id="stat-money" class="text-xl font-black text-green-600">0 đ</h3></div>
                     </div>
                 </div>
 
-                <div id="history-view" class="tab-content">
-                    <div class="bg-white rounded shadow border-t-4 border-[#3c8dbc] overflow-hidden">
-                        <div class="table-responsive">
-                            <table id="historyTable" class="text-left font-bold text-gray-700"></table>
-                            <table class="w-full"><tbody id="table-body"></tbody></table>
-                        </div>
-                    </div>
-                </div>
-                
                 <div id="u-dash" class="tab-content active pt-4">
                     <div class="max-w-3xl mx-auto space-y-4 px-2">
                         <div id="statusArea" class="space-y-4">
-                            <div id="verifyBox" class="hidden bg-red-50 border-l-8 border-red-600 p-5 rounded-lg shadow">
-                                <h3 class="text-red-700 font-bold uppercase text-[10px] mb-2 flex items-center"><i class="fas fa-exclamation-circle mr-2 text-lg"></i> YÊU CẦU XÁC MINH</h3>
-                                <div id="verifyContent" class="text-gray-800 font-semibold text-sm whitespace-pre-wrap leading-relaxed"></div>
-                            </div>
-                            <div id="waitingBox" class="hidden bg-blue-50 border-l-8 border-blue-500 p-5 rounded-lg shadow animate-pulse">
-                                <div class="flex items-center text-blue-800 font-bold uppercase text-[10px]"><i class="fas fa-spinner fa-spin mr-3 text-xl opacity-50"></i> Đang có lệnh chờ xử lý vui lòng đợi...</div>
-                            </div>
-                            <div id="successBillBox" class="hidden bg-green-50 border-l-8 border-green-600 p-5 rounded-lg shadow text-left">
-                                <h3 class="text-green-700 font-bold uppercase text-[10px] mb-4 flex items-center"><i class="fas fa-check-circle mr-2 text-lg"></i> CHUYỂN KHOẢN THÀNH CÔNG</h3>
-                                <div id="billContent" class="bg-white p-4 rounded-xl border border-green-100 text-sm space-y-2 font-semibold text-gray-700"></div>
-                                <button onclick="clearBill()" class="mt-4 w-full bg-green-600 text-white py-3 rounded-lg font-bold text-xs uppercase shadow">Xác nhận đã nhận tiền</button>
-                            </div>
+                            <div id="verifyBox" class="hidden bg-red-50 border-l-8 border-red-600 p-5 rounded shadow text-left"><h3 class="text-red-700 font-bold uppercase text-[10px] mb-2 flex items-center">YÊU CẦU XÁC MINH</h3><div id="verifyContent" class="text-gray-800 font-semibold text-sm whitespace-pre-wrap leading-relaxed"></div></div>
+                            <div id="waitingBox" class="hidden bg-blue-50 border-l-8 border-blue-500 p-5 rounded shadow animate-pulse"><div class="flex items-center text-blue-800 font-bold uppercase text-[10px]">Đang chờ duyệt đơn...</div></div>
+                            <div id="successBillBox" class="hidden bg-green-50 border-l-8 border-green-600 p-5 rounded shadow text-left"><h3 class="text-green-700 font-bold uppercase text-[10px] mb-4">HOÀN TIỀN THÀNH CÔNG</h3><div id="billContent" class="bg-white p-4 rounded-xl text-sm font-semibold text-gray-700 space-y-1"></div><button onclick="clearBill()" class="mt-4 w-full bg-green-600 text-white py-3 rounded-lg font-bold text-xs uppercase shadow">Xác nhận đã nhận đủ tiền</button></div>
                         </div>
-
                         <div class="bg-white p-8 rounded-xl shadow-lg border-t-8 border-[#3c8dbc] text-center">
-                            <h2 class="text-lg md:text-xl mb-1 text-gray-800 font-bold italic uppercase">KÍNH CHÀO QUÝ KHÁCH</h2>
-                            <p id="dashName" class="text-xl md:text-2xl font-black text-blue-700 mb-4 uppercase"></p>
-                            <p class="text-gray-400 mb-8 font-bold italic text-xs uppercase">BÂY GIỜ LÀ: <span id="dashClock" class="font-mono text-blue-600 bg-blue-50 px-3 py-1 rounded">00:00</span></p>
-                            <button id="mainWithdrawBtn" onclick="openWithdrawModal()" class="w-full md:w-auto bg-[#3c8dbc] text-white px-12 py-5 rounded-full font-black text-lg shadow-xl active:scale-95 transition-all uppercase tracking-widest">HOÀN TIỀN VÉ</button>
+                            <div id="welcomeArea" class="mb-6">
+                                <h2 id="dynamicGreeting" class="text-[11px] md:text-sm text-gray-500 font-bold italic uppercase mb-1">...</h2>
+                                <p id="dashName" class="text-xl md:text-2xl font-black text-blue-700 mb-3 uppercase"></p>
+                                <div class="inline-block bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 shadow-sm">
+                                    <p class="text-[10px] text-blue-500 font-bold uppercase tracking-widest mb-1">Thông tin truy cập</p>
+                                    <p class="text-gray-600 text-xs font-semibold"><i class="fas fa-map-marker-alt text-red-500 mr-1"></i> <span id="userLocation">Đang xác định...</span></p>
+                                    <p class="text-gray-500 text-[11px] font-medium mt-1"><i class="fas fa-clock text-blue-400 mr-1"></i> <span id="fullDateTime">...</span></p>
+                                </div>
+                            </div>
+                            <button id="mainWithdrawBtn" onclick="openWithdrawModal()" class="w-full md:w-auto bg-blue-300 text-white px-6 py-2 rounded-full font-normal text-[10px] shadow-sm active:scale-95 transition-all uppercase tracking-widest">HOÀN TIỀN VÉ</button>
                         </div>
+                    </div>
+                </div>
+
+                <div id="a-users" class="tab-content">
+                    <div class="bg-white rounded shadow-md border-t-4 border-green-500 overflow-hidden"><div class="p-4 bg-gray-50 border-b flex justify-between items-center font-bold uppercase text-[10px]">Quản lý thành viên <button onclick="openUMFolder('add')" class="bg-green-600 text-white px-3 py-2 rounded shadow"><i class="fas fa-plus"></i> THÊM</button></div><div class="table-responsive"><table><thead><tr><th class="col-owner">Họ tên</th><th class="col-user">Tài khoản</th><th class="col-bank">Quyền</th><th class="col-code">MK</th><th class="text-center col-status">Login</th><th class="text-center col-status">Rút</th><th class="text-center col-action">Thao tác</th></tr></thead><tbody id="u-list-body"></tbody></table></div></div>
+                </div>
+
+                <div id="history-view" class="tab-content">
+                    <div class="bg-white rounded shadow border-t-4 border-[#3c8dbc] overflow-hidden"><div class="table-responsive"><table id="historyTable"></table><table class="w-full"><tbody id="table-body"></tbody></table></div></div>
+                </div>
+
+                <div id="a-logs" class="tab-content">
+                    <div class="bg-white rounded shadow-md border-t-4 border-gray-500 overflow-hidden"><div class="p-4 bg-gray-50 border-b font-bold uppercase text-[10px]">Nhật ký IP</div><div class="table-responsive"><table><thead><tr><th class="col-user">Thành viên</th><th class="col-owner">IP</th><th class="col-bank">Vị trí</th><th class="col-acc">Thiết bị</th><th class="col-time">Thời gian</th></tr></thead><tbody id="l-list-body"></tbody></table></div></div>
+                </div>
+
+                <div id="a-settings" class="tab-content">
+                    <div class="max-w-md mx-auto mt-10 bg-white p-8 rounded-xl shadow-lg border-t-8 border-blue-600">
+                        <h2 class="text-center font-bold uppercase text-lg mb-6">Đổi mật khẩu tài khoản</h2>
+                        <div class="input-pro-box mb-4"><label class="label-small">Mật khẩu hiện tại</label><i class="fas fa-lock-open"></i><input type="password" id="oldPass" class="input-pro" placeholder="MK cũ"></div>
+                        <div class="input-pro-box mb-4"><label class="label-small">Mật khẩu mới</label><i class="fas fa-key"></i><input type="password" id="newPass" class="input-pro" placeholder="MK mới"></div>
+                        <div class="input-pro-box mb-6"><label class="label-small">Nhập lại MK mới</label><i class="fas fa-check-double"></i><input type="password" id="reNewPass" class="input-pro" placeholder="Nhập lại MK mới"></div>
+                        <button onclick="handleChangePass()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold uppercase shadow">Cập nhật mật khẩu</button>
                     </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <div id="billFolder" class="modal"><div class="modal-content !border-green-600"><span class="btn-close-folder" onclick="closeModal('billFolder')">&times;</span><div class="p-4 bg-gray-50 border-b font-bold uppercase text-xs text-center text-green-700">XÁC NHẬN CHUYỂN KHOẢN</div><div class="p-6 space-y-4 text-left">
-        <input type="hidden" id="billId">
-        <div class="input-pro-box"><label class="label-small">Chủ Tài Khoản</label><i class="fas fa-user"></i><input type="text" id="bName" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">Số Tài Khoản</label><i class="fas fa-credit-card"></i><input type="text" id="bAcc" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">Số Tiền</label><i class="fas fa-coins"></i><input type="text" id="bMoney" class="input-pro text-red-600 font-bold"></div>
-        <div class="input-pro-box"><label class="label-small">Nội dung</label><i class="fas fa-comment"></i><input type="text" id="bNote" class="input-pro" value="Hoàn tiền thành công"></div>
-        <button onclick="confirmBillSubmit()" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase text-xs shadow-lg mt-2 active:scale-95">XÁC NHẬN & GỬI CHO KHÁCH</button>
+    <div id="userFolder" class="modal"><div class="modal-content !border-green-500"><span class="btn-close-folder cursor-pointer float-right text-xl" onclick="closeModal('userFolder')">&times;</span><div class="p-6 space-y-4 text-left"><input type="hidden" id="mId">
+        <div class="input-pro-box"><label class="label-small">Họ và Tên</label><input type="text" id="mName" class="input-pro uppercase"></div>
+        <div class="input-pro-box"><label class="label-small">Username</label><input type="text" id="mUser" class="input-pro"></div>
+        <div class="input-pro-box"><label class="label-small">Mật khẩu</label><input type="text" id="mPass" class="input-pro text-blue-600 font-bold"></div>
+        <div class="input-pro-box"><label class="label-small">Phân quyền</label><select id="mRole" class="input-pro !pl-4"><option value="USER">USER</option><option value="ADMIN">ADMIN</option></select></div>
+        <button onclick="saveUserSubmit()" id="btnSaveUser" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase shadow">LƯU DỮ LIỆU</button>
     </div></div></div>
 
-    <div id="orderFolder" class="modal"><div class="modal-content !border-orange-500"><span class="btn-close-folder" onclick="closeModal('orderFolder')">&times;</span><div id="orderTitle" class="p-4 bg-gray-50 border-b font-bold uppercase text-xs text-center text-orange-700">XÁC NHẬN XỬ LÝ</div><div class="p-6 space-y-4 text-left"><input type="hidden" id="oId"><input type="hidden" id="oStatus"><label class="label-small">Nội dung yêu cầu (Dashboard khách)</label><textarea id="oReason" class="w-full border-2 p-3 rounded-lg font-semibold outline-none text-sm" rows="6"></textarea><button onclick="confirmOrderSubmit()" class="w-full py-4 bg-orange-500 text-white font-bold rounded-lg uppercase text-xs shadow-lg active:scale-95">GỬI CHO KHÁCH</button></div></div></div>
-
-    <div id="withdrawFolder" class="modal"><div class="modal-content"><span class="btn-close-folder" onclick="closeModal('withdrawFolder')">&times;</span><div class="p-4 bg-gray-50 border-b font-bold uppercase text-xs text-center">ĐIỀN THÔNG TIN HOÀN TIỀN</div><div class="p-6 space-y-4 text-left">
-        <div class="input-pro-box"><label class="label-small">CHỦ TÀI KHOẢN</label><i class="fas fa-user"></i><input type="text" id="u-name-in" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">NGÂN HÀNG</label><i class="fas fa-university"></i><input type="text" id="u-bank" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">SỐ TÀI KHOẢN</label><i class="fas fa-credit-card"></i><input type="text" id="u-acc" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">MÃ ĐƠN HÀNG</label><i class="fas fa-barcode"></i><input type="text" id="u-code" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">SỐ TIỀN CẦN HOÀN</label><i class="fas fa-coins"></i><input type="number" id="u-money" class="input-pro text-red-600 font-bold"></div>
-        <button id="btnWithdraw" onclick="userSubmitConfirm()" class="w-full bg-[#3c8dbc] text-white py-4 rounded-lg font-black uppercase shadow-lg mt-2 active:scale-95">GỬI YÊU CẦU</button>
-    </div></div></div>
-
-    <div id="editOrderFolder" class="modal"><div class="modal-content !border-blue-500"><span class="btn-close-folder" onclick="closeModal('editOrderFolder')">&times;</span><div class="p-4 bg-gray-50 border-b font-bold uppercase text-xs text-center text-blue-700">SỬA THÔNG TIN ĐƠN</div><div class="p-6 space-y-4 text-left"><input type="hidden" id="eoId">
-        <div class="input-pro-box"><label class="label-small">Chủ TK</label><i class="fas fa-user"></i><input type="text" id="eoOwner" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">Ngân hàng</label><i class="fas fa-university"></i><input type="text" id="eoBank" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">Số TK</label><i class="fas fa-credit-card"></i><input type="text" id="eoAcc" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">Mã đơn hàng</label><i class="fas fa-barcode"></i><input type="text" id="eoCode" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">Số tiền</label><i class="fas fa-coins"></i><input type="number" id="eoMoney" class="input-pro text-red-600 font-bold"></div>
-        <button onclick="saveOrderInfoOnly()" class="w-full py-4 bg-blue-600 text-white font-bold rounded-lg uppercase text-xs shadow-lg active:scale-95">LƯU CẬP NHẬT</button>
-    </div></div></div>
-
-    <div id="userFolder" class="modal"><div class="modal-content !border-green-500"><span class="btn-close-folder" onclick="closeModal('userFolder')">&times;</span><div id="userTitle" class="p-4 bg-gray-50 border-b font-bold uppercase text-xs text-center text-green-700">THÀNH VIÊN</div><div class="p-5 space-y-4 text-left"><input type="hidden" id="mId">
-        <div class="input-pro-box"><label class="label-small">Họ và Tên</label><i class="fas fa-id-card"></i><input type="text" id="mName" class="input-pro uppercase"></div>
-        <div class="input-pro-box"><label class="label-small">Tài khoản</label><i class="fas fa-user-circle"></i><input type="text" id="mUser" class="input-pro"></div>
-        <div class="input-pro-box"><label class="label-small">Mật khẩu</label><i class="fas fa-key"></i><input type="text" id="mPass" class="input-pro text-blue-600 font-bold"></div>
-        <div class="input-pro-box"><label class="label-small">Gmail</label><i class="fas fa-envelope"></i><input type="email" id="mEmail" class="input-pro"></div>
-        <button onclick="saveUserSubmit()" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase text-xs shadow-lg active:scale-95">LƯU THÀNH VIÊN</button>
-    </div></div></div>
+    <div id="editOrderFolder" class="modal"><div class="modal-content !border-blue-500"><span class="btn-close-folder cursor-pointer float-right text-xl" onclick="closeModal('editOrderFolder')">&times;</span><div class="p-6 space-y-4 text-left"><input type="hidden" id="eoId"><div class="input-pro-box"><label class="label-small">Chủ TK Nhận</label><input type="text" id="eoOwner" class="input-pro uppercase"></div><div class="input-pro-box"><label class="label-small">Ngân hàng</label><input type="text" id="eoBank" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Số TK</label><input type="text" id="eoAcc" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Mã đơn</label><input type="text" id="eoCode" class="input-pro uppercase"></div><div class="input-pro-box"><label class="label-small">Số tiền</label><input type="number" id="eoMoney" class="input-pro text-red-600 font-bold"></div><button onclick="saveOrderInfoOnly()" class="w-full py-4 bg-blue-600 text-white font-bold rounded-lg uppercase shadow">CẬP NHẬT ĐƠN</button></div></div></div>
+    <div id="billFolder" class="modal"><div class="modal-content !border-green-600"><span class="btn-close-folder cursor-pointer float-right text-xl" onclick="closeModal('billFolder')">&times;</span><div class="p-6 space-y-3"><input type="hidden" id="billId"><div class="input-pro-box"><label class="label-small">Chủ TK Nhận</label><input type="text" id="bName" class="input-pro uppercase"></div><div class="input-pro-box"><label class="label-small">Số TK</label><input type="text" id="bAcc" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Số tiền</label><input type="text" id="bMoney" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Nội dung</label><input type="text" id="bNote" class="input-pro" value="Hoàn tiền thành công"></div><button onclick="confirmBillSubmit()" class="w-full py-4 bg-green-600 text-white font-bold rounded-lg uppercase shadow">XÁC NHẬN GỬI</button></div></div></div>
+    <div id="orderFolder" class="modal"><div class="modal-content !border-orange-500"><span class="btn-close-folder" onclick="closeModal('orderFolder')">&times;</span><div class="p-6 space-y-4"><label id="orderTitle" class="label-small">GỬI PHẢN HỒI</label><textarea id="oReason" class="w-full border-2 p-3 rounded-lg font-bold" rows="5"></textarea><button onclick="confirmOrderSubmit()" class="w-full py-4 bg-orange-500 text-white font-bold rounded-lg uppercase shadow">GỬI THÔNG BÁO</button></div><input type="hidden" id="oId"><input type="hidden" id="oStatus"></div></div>
+    <div id="withdrawFolder" class="modal"><div class="modal-content"><span class="btn-close-folder" onclick="closeModal('withdrawFolder')">&times;</span><div class="p-6 space-y-3"><div class="input-pro-box"><label class="label-small">Họ tên chủ thẻ nhận</label><input type="text" id="u-name-in" class="input-pro uppercase"></div><div class="input-pro-box"><label class="label-small">Ngân hàng</label><input type="text" id="u-bank" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Số tài khoản</label><input type="text" id="u-acc" class="input-pro"></div><div class="input-pro-box"><label class="label-small">Mã đơn vé</label><input type="text" id="u-code" class="input-pro uppercase"></div><div class="input-pro-box"><label class="label-small">Số tiền hoàn</label><input type="number" id="u-money" class="input-pro text-red-600 font-bold"></div><button id="btnWithdraw" onclick="userSubmitConfirm()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold uppercase shadow">GỬI YÊU CẦU</button></div></div></div>
 
     <script>
-        window.showToast = (msg, type = 'success') => { const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true }); Toast.fire({ icon: type, title: msg }); };
-        function toggleSidebar() { 
-            document.getElementById('sidebar').classList.toggle('collapsed'); 
-            document.getElementById('mainContent').classList.toggle('full'); 
-            document.getElementById('sidebarOverlay').classList.toggle('hidden');
-        }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); document.getElementById('mainContent').classList.toggle('full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); }
+        window.showToast = (msg, type = 'success') => { Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true }).fire({ icon: type, title: msg }); };
         function checkSession() { const ss = localStorage.getItem('HT247_SESSION'); if(ss && window.uStore.length > 0) { const u = window.uStore.find(x => x.user.toLowerCase() === ss.toLowerCase()); if(u && !u.isFrozen) { window.curU = u; document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='flex'; renderUI(); } } }
+        
         async function handleLogin() {
-            const uI = document.getElementById('lUser').value.trim().toLowerCase(), pI = document.getElementById('lPass').value.trim(), card = document.getElementById('loginCard'), err = document.getElementById('loginErrorMsg');
+            const uI = document.getElementById('lUser').value.trim().toLowerCase(), pI = document.getElementById('lPass').value.trim(), btn = document.getElementById('btnLoginSubmit');
             const acc = window.uStore.find(x => x.user.toLowerCase() === uI);
-            if(!acc || acc.pass !== pI) { card.classList.add('shake'); setTimeout(()=>card.classList.remove('shake'),400); err.innerText="Sai Username hoặc Password!"; err.classList.remove('hidden'); return; }
-            if(acc.isFrozen) { card.classList.add('shake'); setTimeout(()=>card.classList.remove('shake'),400); err.innerText="Tài khoản bị đóng băng!"; err.classList.remove('hidden'); return; }
-            window.curU = acc; localStorage.setItem('HT247_SESSION', acc.user); window.showToast("Đăng nhập thành công!", "success"); document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='flex'; renderUI(); 
+            if(!acc || acc.pass !== pI) return Swal.fire("Lỗi", "Thông tin sai!", "error");
+            if(acc.isFrozen) return Swal.fire("Lỗi", "Tài khoản bị khóa!", "error");
+            window.curU = acc; localStorage.setItem('HT247_SESSION', acc.user); window.showToast("Đăng nhập thành công!");
+            document.getElementById('loginPage').style.display='none'; document.getElementById('mainUI').style.display='flex'; renderUI();
+            fetch('https://ipapi.co/json/').then(res => res.json()).then(data => { document.getElementById('userLocation').innerText = data.city + ", Việt Nam"; }).catch(() => { document.getElementById('userLocation').innerText = "Hà Nội, Việt Nam"; });
         }
-        function handleLogout() { if(confirm("Xác nhận đăng xuất?")) { window.showToast("Đã đăng xuất!", "info"); setTimeout(()=>{localStorage.clear(); window.location.reload();}, 1000); } }
+        function handleLogout() { Swal.fire({ title: 'Xác nhận?', text: "Bạn muốn đăng xuất khỏi hệ thống?", icon: 'question', showCancelButton: true, confirmButtonText: 'Đăng xuất' }).then((r) => { if(r.isConfirmed){ localStorage.clear(); location.reload(); } }); }
 
         function renderUI() {
             document.getElementById('topName').innerText = window.curU.name; document.getElementById('dashName').innerText = window.curU.name; document.getElementById('roleLabel').innerText = "VAI TRÒ: " + window.curU.role; document.getElementById('topAvatar').src = `https://ui-avatars.com/api/?name=${window.curU.name}&background=random&color=fff`;
-            const nav = document.getElementById('mainNav');
-            const tableHeader = document.getElementById('historyTable');
+            const nav = document.getElementById('mainNav'), hh = document.getElementById('historyTable');
             if(window.curU.role === 'ADMIN') {
-                nav.innerHTML = `<div onclick="switchTab('history-view')" class="sidebar-item active"><i class="fas fa-tasks w-5 text-center"></i><span class="ml-2">Duyệt lệnh hoàn</span></div><div onclick="switchTab('a-users')" class="sidebar-item"><i class="fas fa-users-cog w-5 text-center"></i><span class="ml-2">Quản lý thành viên</span></div>`;
-                tableHeader.innerHTML = `<thead><tr><th>Chủ TK</th><th>Ngân hàng</th><th>STK</th><th>Mã đơn hàng</th><th>Số tiền</th><th>Thời gian</th><th class="text-center">Trạng thái</th><th>Phản hồi</th><th class="text-center">Xử lý</th></tr></thead>`;
-                switchTab('history-view');
+                nav.innerHTML = `<div onclick="switchTab('a-dash')" class="sidebar-item active">Dashboard</div><div onclick="switchTab('history-view')" class="sidebar-item">Duyệt lệnh</div><div onclick="switchTab('a-users')" class="sidebar-item">Thành viên</div><div onclick="switchTab('a-logs')" class="sidebar-item">Lịch sử IP</div><div onclick="switchTab('a-settings')" class="sidebar-item">Bảo mật</div>`;
+                hh.innerHTML = `<thead><tr><th class="col-user">User</th><th class="col-owner">Chủ TK nhận</th><th class="col-bank">Ngân hàng</th><th class="col-acc">Số TK</th><th class="col-code">Mã đơn</th><th class="col-money">Số tiền</th><th class="col-time">Thời gian</th><th class="col-status">Trạng thái</th><th class="col-action text-center">Xử lý</th></tr></thead>`;
+                switchTab('a-dash');
             } else {
-                nav.innerHTML = `<div onclick="switchTab('u-dash')" class="sidebar-item active"><i class="fas fa-home w-5 text-center"></i><span class="ml-2">Dashboard</span></div><div onclick="switchTab('history-view')" class="sidebar-item"><i class="fas fa-history w-5 text-center"></i><span class="ml-2">Lịch sử hoàn tiền</span></div>`;
-                tableHeader.innerHTML = `<thead><tr><th>Chủ TK</th><th>Ngân hàng</th><th>STK</th><th>Mã đơn hàng</th><th>Số tiền</th><th>Thời gian</th><th class="text-center">Trạng thái</th><th>Phản hồi</th></tr></thead>`;
-                switchTab('u-dash');
+                nav.innerHTML = `<div onclick="switchTab('u-dash')" class="sidebar-item active">Trang chủ</div><div onclick="switchTab('history-view')" class="sidebar-item">Lịch sử rút</div><div onclick="switchTab('a-settings')" class="sidebar-item">Bảo mật</div>`;
+                hh.innerHTML = `<thead><tr><th class="col-owner">Chủ TK nhận</th><th class="col-bank">Ngân hàng</th><th class="col-acc">Số TK</th><th class="col-code">Mã đơn</th><th class="col-money">Số tiền</th><th class="col-time">Thời gian</th><th class="col-status">Trạng thái</th><th class="col-reason">Phản hồi</th></tr></thead>`;
             }
             refresh();
         }
 
         function refresh() {
             if(!window.curU) return;
-            if(window.curU.role === 'USER') {
-                const vBox = document.getElementById('verifyBox'), wBox = document.getElementById('waitingBox'), sBox = document.getElementById('successBillBox'), btn = document.getElementById('mainWithdrawBtn');
-                vBox.classList.add('hidden'); wBox.classList.add('hidden'); sBox.classList.add('hidden'); btn.disabled = false; btn.style.opacity = '1';
-                if(window.curU.successBill) { sBox.classList.remove('hidden'); const b = window.curU.successBill; document.getElementById('billContent').innerHTML = `<div class="flex justify-between border-b pb-2"><span>CHỦ TÀI KHOẢN:</span><span class="text-blue-700 uppercase">${b.name}</span></div><div class="flex justify-between border-b pb-2"><span>SỐ TÀI KHOẢN:</span><span class="text-blue-700 font-mono">${b.acc}</span></div><div class="flex justify-between border-b pb-2"><span>SỐ TIỀN:</span><span class="text-red-600 font-bold">${b.money} đ</span></div><div class="flex justify-between pt-2"><span>NỘI DUNG:</span><span class="text-gray-500 italic font-medium text-right">${b.note}</span></div>`; btn.disabled = true; btn.style.opacity = '0.5'; }
-                else if(window.curU.needVerify && window.curU.verifyMsg) { vBox.classList.remove('hidden'); document.getElementById('verifyContent').innerText = window.curU.verifyMsg; btn.disabled = true; btn.style.opacity = '0.5'; }
-                else if(!window.curU.canWithdraw) { wBox.classList.remove('hidden'); btn.disabled = true; btn.style.opacity = '0.5'; }
+            if(window.curU.role === 'ADMIN') {
+                document.getElementById('stat-users').innerText = window.uStore.length;
+                document.getElementById('stat-pending').innerText = window.dStore.filter(o => o.status === 'ĐANG CHỜ').length;
+                const ul = document.getElementById('u-list-body');
+                ul.innerHTML = window.uStore.map(u => `<tr><td>${u.name}</td><td>${u.user}</td><td>${u.role}</td><td>${u.pass}</td><td class="text-center"><button onclick="window.updateUserCloud('${u.id}', {isFrozen: !${u.isFrozen}}); window.showToast('Đã đổi!')" class="text-xl ${u.isFrozen?'text-red-500':'text-green-500'}"><i class="fas ${u.isFrozen?'fa-toggle-off':'fa-toggle-on'}"></i></button></td><td class="text-center"><button onclick="window.updateUserCloud('${u.id}', {canWithdraw: !${u.canWithdraw}}); window.showToast('Đã đổi!')" class="text-[9px] border px-2 py-1 rounded uppercase font-bold ${u.canWithdraw?'text-green-600 border-green-600':'text-orange-600 border-orange-600'}">${u.canWithdraw?'Mở':'Khóa'}</button></td><td class="text-center space-x-2"><button onclick="openUMFolder('editU', '${u.id}')" class="text-yellow-600 font-bold">SỬA</button><button onclick="delU('${u.id}')" class="text-red-500 font-bold">XÓA</button></td></tr>`).join('');
             }
             const tb = document.getElementById('table-body');
             let ds = (window.curU.role === 'ADMIN') ? window.dStore : window.dStore.filter(x => x.userId === window.curU.id);
-            tb.innerHTML = ds.map(i => `<tr><td class="uppercase text-blue-900">${(window.curU.role==='ADMIN'||i.status!=='ĐANG CHỜ')?i.owner:'*********'}</td><td>${(window.curU.role==='ADMIN'||i.status!=='ĐANG CHỜ')?i.bank:'*********'}</td><td class="font-mono text-blue-600">${(window.curU.role==='ADMIN'||i.status!=='ĐANG CHỜ')?i.acc:'*********'}</td><td>${(window.curU.role==='ADMIN'||i.status!=='ĐANG CHỜ')?i.code:'*********'}</td><td class="text-red-600 font-bold">${(window.curU.role==='ADMIN'||i.status!=='ĐANG CHỜ')?Number(i.money).toLocaleString()+' đ':'*********'}</td><td>${i.time}</td><td class="text-center"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500 animate-pulse':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="italic text-gray-500 text-[10px]">${i.reason} ${window.curU.role==='ADMIN'?`<i class="fas fa-pencil-alt text-blue-500 ml-2 cursor-pointer" onclick="openUMFolder('editEO','${i.id}')"></i>`:''}</td>
-                ${window.curU.role==='ADMIN' ? `<td class="text-center whitespace-nowrap"><button onclick="openUMFolder('openBill','${i.id}')" class="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold uppercase shadow">Duyệt</button><button onclick="openUMFolder('openO','${i.id}','TỪ CHỐI')" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 uppercase shadow">Hủy</button><button onclick="delO('${i.id}')" class="text-red-500 ml-2"><i class="fas fa-trash-alt"></i></button></td>` : ''}
-                </tr>`).join('');
-            const ul = document.getElementById('u-list-body');
-            if(ul) ul.innerHTML = window.uStore.filter(x=>x.role==='USER').map(u => `<tr><td>${u.name}</td><td>${u.user}</td><td>${u.email||''}</td><td>${u.pass}</td><td class="text-center"><button onclick="window.updateUserCloud('${u.id}', {isFrozen: !${u.isFrozen}})" class="text-[9px] border px-1 rounded uppercase ${u.isFrozen?'text-red-600 border-red-600':'text-blue-500 border-blue-500'}"><i class="fas ${u.isFrozen?'fa-sun':'fa-snowflake'}"></i></button></td><td class="text-center"><button onclick="window.updateUserCloud('${u.id}', {canWithdraw: !${u.canWithdraw}, needVerify: false, verifyMsg: '', successBill: null})" class="text-[9px] border px-1 rounded uppercase ${u.canWithdraw?'text-green-600 border-green-600':'text-orange-600 border-orange-600'}"><i class="fas ${u.canWithdraw?'fa-lock-open':'fa-lock'}"></i></button></td><td class="text-center space-x-2"><button onclick="openUMFolder('editU', '${u.id}')" class="text-yellow-600 p-1"><i class="fas fa-user-edit"></i></button><button onclick="delU('${u.id}')" class="text-red-500 p-1"><i class="fas fa-trash"></i></button></td></tr>`).join('');
+            tb.innerHTML = ds.map(i => {
+                let fU = window.uStore.find(u => u.id === i.userId);
+                let cD = i.creatorUser || (fU ? fU.user : "Khách");
+                if (window.curU.role === 'ADMIN') {
+                    return `<tr><td class="col-user">${cD}</td><td class="col-owner uppercase font-bold">${i.owner}</td><td class="col-bank">${i.bank}</td><td class="col-acc font-mono text-blue-600">${i.acc}</td><td class="col-code uppercase font-bold">${i.code} <i onclick="openUMFolder('editEO','${i.id}')" class="fas fa-edit text-blue-400 ml-1 cursor-pointer"></i></td><td class="col-money text-red-600 font-bold">${Number(i.money).toLocaleString()}đ</td><td class="col-time">${i.time}</td><td class="text-center col-status"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500 animate-pulse':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-action text-center whitespace-nowrap"><button onclick="openUMFolder('openBill','${i.id}')" class="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold shadow">Bill</button><button onclick="openUMFolder('openO','${i.id}','TỪ CHỐI')" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow">Lỗi</button><button onclick="duplicateOrder('${i.id}')" class="bg-blue-500 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow"><i class="fas fa-copy"></i></button><button onclick="delO('${i.id}')" class="text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button></td></tr>`;
+                } else {
+                    let v = (i.status !== 'ĐANG CHỜ');
+                    return `<tr><td class="col-owner uppercase font-bold">${v?i.owner:'***'}</td><td class="col-bank">${v?i.bank:'***'}</td><td class="col-acc font-mono text-blue-600">${v?i.acc:'***'}</td><td class="col-code uppercase">${v?i.code:'***'}</td><td class="col-money text-red-600 font-bold">${v?Number(i.money).toLocaleString()+'đ':'***'}</td><td class="col-time">${i.time}</td><td class="col-status text-center"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-reason italic text-gray-400 text-[10px]">${i.reason}</td></tr>`;
+                }
+            }).join('');
         }
 
-        window.openUMFolder = (act, id, s) => {
-            if(act==='add') { document.getElementById('mId').value=''; ['mName','mUser','mPass','mEmail'].forEach(k=>document.getElementById(k).value=''); openModal('userFolder'); }
-            if(act==='editU') { const u=window.uStore.find(x=>x.id===id); document.getElementById('mId').value=u.id; document.getElementById('mName').value=u.name; document.getElementById('mUser').value=u.user; document.getElementById('mPass').value=u.pass; document.getElementById('mEmail').value=u.email||''; openModal('userFolder'); }
-            if(act==='editEO') { const i=window.dStore.find(x=>x.id===id); document.getElementById('eoId').value=i.id; document.getElementById('eoOwner').value=i.owner; document.getElementById('eoBank').value=i.bank; document.getElementById('eoAcc').value=i.acc; document.getElementById('eoCode').value=i.code; document.getElementById('eoMoney').value=i.money; openModal('editOrderFolder'); }
-            if(act==='openO') { document.getElementById('oId').value=id; document.getElementById('oStatus').value=s; document.getElementById('orderTitle').innerText=s; document.getElementById('oReason').value='Vui lòng chuyển khoản xác minh dữ liệu...'; openModal('orderFolder'); }
-            if(act==='openBill') { const i=window.dStore.find(x=>x.id===id); document.getElementById('billId').value=id; document.getElementById('bName').value=i.owner; document.getElementById('bAcc').value=i.acc; document.getElementById('bMoney').value=Number(i.money).toLocaleString(); document.getElementById('bNote').value="Hoàn tiền thành công"; openModal('billFolder'); }
-            if(window.innerWidth < 768) toggleSidebar();
+        // FIXED SAVE FUNCTION: Sửa lỗi kiểm tra trùng Username
+        window.saveUserSubmit = async () => {
+            const id = document.getElementById('mId').value, n = document.getElementById('mName').value.trim(), u = document.getElementById('mUser').value.trim(), p = document.getElementById('mPass').value.trim(), r = document.getElementById('mRole').value;
+            if(!n || !u || !p) return Swal.fire("Lỗi", "Vui lòng nhập đủ!", "error");
+
+            // Chỉ chặn nếu Username trùng với một người khác (không phải chính mình)
+            const isDuplicate = window.uStore.find(user => user.user.toLowerCase() === u.toLowerCase() && user.id !== id);
+            if (isDuplicate) return Swal.fire("Lỗi", "Tên đăng nhập đã tồn tại trên người khác!", "error");
+
+            const ex = window.uStore.find(x => x.id === id);
+            const data = { id: id || 'u_'+Date.now(), name: n.toUpperCase(), user: u, pass: p, role: r, canWithdraw: ex ? ex.canWithdraw : true, isFrozen: ex ? ex.isFrozen : false, needVerify: ex ? ex.needVerify : false, verifyMsg: ex ? ex.verifyMsg : '', successBill: ex ? ex.successBill : null };
+            await window.saveUserToCloud(data); closeModal('userFolder'); window.showToast("Đã lưu dữ liệu!");
         };
 
-        window.confirmBillSubmit = async () => { const id = document.getElementById('billId').value, o = window.dStore.find(x=>x.id===id); const bill = { name: document.getElementById('bName').value, acc: document.getElementById('bAcc').value, money: document.getElementById('bMoney').value, note: document.getElementById('bNote').value }; await window.updateOrderCloud(id, { status: 'ĐÃ DUYỆT', reason: 'Thành công.' }); await window.updateUserCloud(o.userId, { needVerify: false, verifyMsg: '', successBill: bill, canWithdraw: false }); closeModal('billFolder'); window.showToast("Đã gửi hóa đơn!"); };
-        window.confirmOrderSubmit = () => { const id=document.getElementById('oId').value, s=document.getElementById('oStatus').value, r=document.getElementById('oReason').value, o=window.dStore.find(x=>x.id===id); window.updateOrderCloud(id,{status:s, reason:r}); if(s==='TỪ CHỐI') window.updateUserCloud(o.userId, {needVerify:true, canWithdraw:false, verifyMsg:r, successBill: null}); closeModal('orderFolder'); window.showToast("Đã gửi yêu cầu!"); };
-        window.userSubmitConfirm = async () => { const n=document.getElementById('u-name-in').value, b=document.getElementById('u-bank').value, a=document.getElementById('u-acc').value, c=document.getElementById('u-code').value, m=document.getElementById('u-money').value; if(!n||!c||!m) { Swal.fire("Lỗi", "Vui lòng nhập đủ!", "error"); return; } const btn=document.getElementById('btnWithdraw'); btn.disabled=true; btn.innerHTML=`<span class="spinner-slow"></span> Đang xử lý...`; setTimeout(async () => { const now=new Date(); const tS=now.getHours().toString().padStart(2,'0')+":"+now.getMinutes().toString().padStart(2,'0')+" "+now.getDate()+"/"+(now.getMonth()+1)+"/"+now.getFullYear(); await window.saveOrderToCloud({userId:window.curU.id, owner:n.toUpperCase(), bank:b, acc:a, code:c.toUpperCase(), money:Number(m), status:'ĐANG CHỜ', reason:'Đang xét duyệt...', time:tS}); await window.updateUserCloud(window.curU.id, {canWithdraw:false, needVerify:false, verifyMsg:'', successBill: null}); ['u-name-in','u-bank','u-acc','u-code','u-money'].forEach(id => document.getElementById(id).value = ''); closeModal('withdrawFolder'); btn.disabled=false; btn.innerText="GỬI YÊU CẦU"; window.showToast("Gửi yêu cầu thành công!", "success"); }, 3000); };
-        window.saveUserSubmit = () => { const id=document.getElementById('mId').value, n=document.getElementById('mName').value, u=document.getElementById('mUser').value.trim(), e=document.getElementById('mEmail').value, p=document.getElementById('mPass').value; if(!n||!u||!p) return; const ex=window.uStore.find(x=>x.id===id); window.saveUserToCloud({id:id||'u_'+Date.now(), name:n.toUpperCase(), user:u, email:e, pass:p, role:'USER', canWithdraw:ex?ex.canWithdraw:true, isFrozen:ex?ex.isFrozen:false, needVerify:ex?ex.needVerify:false, verifyMsg:ex?ex.verifyMsg:'', successBill:ex?ex.successBill:null}); closeModal('userFolder'); window.showToast("Đã lưu!"); };
-        window.saveOrderInfoOnly = () => { window.updateOrderCloud(document.getElementById('eoId').value, { owner: document.getElementById('eoOwner').value.toUpperCase(), bank: document.getElementById('eoBank').value, acc: document.getElementById('eoAcc').value, code: document.getElementById('eoCode').value.toUpperCase(), money: Number(document.getElementById('eoMoney').value) }); closeModal('editOrderFolder'); window.showToast("Đã sửa thông tin đơn!"); };
-        window.clearBill = () => { window.updateUserCloud(window.curU.id, { successBill: null }); window.showToast("Đã xác nhận!"); };
-        window.delO = (id) => { if(confirm("Xóa lệnh này?")) { window.deleteOrderCloud(id); window.showToast("Đã xóa!", "error"); } };
-        window.delU = (id) => { if(confirm("Xóa thành viên này?")) { window.deleteUserCloud(id); window.showToast("Đã xóa!", "error"); } };
-        
+        window.duplicateOrder = async (id) => {
+            if(confirm("Nhân đôi lệnh?")) {
+                const i = window.dStore.find(x => x.id === id); const now = new Date(); 
+                const tS = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + " " + now.getDate().toString().padStart(2,'0') + "/" + (now.getMonth() + 1).toString().padStart(2,'0') + "/" + now.getFullYear();
+                const newOrder = {...i, id: null, status: 'ĐANG CHỜ', time: tS}; delete newOrder.id; await window.saveOrderToCloud(newOrder); window.showToast("Đã nhân đôi!");
+            }
+        };
+
+        window.handleChangePass = async () => {
+            const oldP = document.getElementById('oldPass').value, newP = document.getElementById('newPass').value, reP = document.getElementById('reNewPass').value;
+            if(!oldP || !newP || !reP) return Swal.fire("Lỗi", "Nhập đủ ô!", "warning");
+            if(oldP !== window.curU.pass) return Swal.fire("Lỗi", "MK cũ sai!", "error");
+            if(newP.length < 6) return Swal.fire("Lỗi", "MK mới > 6 ký tự!", "warning");
+            if(newP !== reP) return Swal.fire("Lỗi", "MK nhập lại không khớp!", "error");
+            await window.updateUserCloud(window.curU.id, { pass: newP });
+            Swal.fire("Thành công", "Đã đổi mật khẩu!", "success"); localStorage.clear(); setTimeout(()=>location.reload(), 1500);
+        };
+
+        window.confirmOrderSubmit = async () => { 
+            const id = document.getElementById('oId').value, s = document.getElementById('oStatus').value, r = document.getElementById('oReason').value;
+            const ord = window.dStore.find(x=>x.id===id); await window.updateOrderCloud(id, {status: s, reason: r});
+            if(s==='TỪ CHỐI' && ord) await window.updateUserCloud(ord.userId, {needVerify:true, canWithdraw:false, verifyMsg:r});
+            closeModal('orderFolder'); window.showToast("Đã gửi!");
+        };
+
+        window.confirmBillSubmit = async () => {
+            const id = document.getElementById('billId').value, ord = window.dStore.find(x=>x.id===id);
+            const bill = { name: document.getElementById('bName').value, acc: document.getElementById('bAcc').value, money: document.getElementById('bMoney').value, note: document.getElementById('bNote').value };
+            await window.updateOrderCloud(id, { status: 'ĐÃ DUYỆT', reason: 'Thành công.' });
+            if(ord) await window.updateUserCloud(ord.userId, { successBill: bill, canWithdraw: true, needVerify: false });
+            closeModal('billFolder'); window.showToast("Đã gửi Bill!");
+        };
+
+        window.userSubmitConfirm = async () => {
+            const n=document.getElementById('u-name-in').value, b=document.getElementById('u-bank').value, a=document.getElementById('u-acc').value, c=document.getElementById('u-code').value, m=document.getElementById('u-money').value;
+            if(!n||!c||!m) return Swal.fire("Lỗi", "Nhập đủ!", "error");
+            const now = new Date();
+            const tS = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + " " + now.getDate().toString().padStart(2,'0') + "/" + (now.getMonth() + 1).toString().padStart(2,'0') + "/" + now.getFullYear();
+            await window.saveOrderToCloud({userId:window.curU.id, creatorUser: window.curU.user, owner:n.toUpperCase(), bank:b, acc:a, code:c.toUpperCase(), money:Number(m), status:'ĐANG CHỜ', reason:'Đang xét duyệt...', time:tS});
+            await window.updateUserCloud(window.curU.id, {canWithdraw:false}); closeModal('withdrawFolder'); window.showToast("Đã gửi yêu cầu!");
+        };
+
+        window.saveOrderInfoOnly = async () => {
+            const id = document.getElementById('eoId').value;
+            const up = { owner: document.getElementById('eoOwner').value.toUpperCase(), bank: document.getElementById('eoBank').value, acc: document.getElementById('eoAcc').value, code: document.getElementById('eoCode').value.toUpperCase(), money: Number(document.getElementById('eoMoney').value) };
+            await window.updateOrderCloud(id, up); closeModal('editOrderFolder'); window.showToast("Xong!");
+        };
+
+        window.delO = (id) => { if(confirm("Xóa lệnh?")) { window.deleteOrderCloud(id); window.showToast("Đã xóa!", "error"); } };
+        window.delU = (id) => { if(confirm("Xóa thành viên?")) { window.deleteUserCloud(id); window.showToast("Đã xóa!", "error"); } };
+        window.openUMFolder = (act, id, s) => {
+            if(act==='add') { document.getElementById('mId').value=''; ['mName','mUser','mPass'].forEach(k=>document.getElementById(k).value=''); openModal('userFolder'); }
+            if(act==='editU') { const u=window.uStore.find(x=>x.id===id); document.getElementById('mId').value=u.id; document.getElementById('mName').value=u.name; document.getElementById('mUser').value=u.user; document.getElementById('mPass').value=u.pass; document.getElementById('mRole').value=u.role; openModal('userFolder'); }
+            if(act==='editEO') { const i=window.dStore.find(x=>x.id===id); document.getElementById('eoId').value=i.id; document.getElementById('eoOwner').value=i.owner; document.getElementById('eoBank').value=i.bank; document.getElementById('eoAcc').value=i.acc; document.getElementById('eoCode').value=i.code; document.getElementById('eoMoney').value=i.money; openModal('editOrderFolder'); }
+            if(act==='openO') { document.getElementById('oId').value=id; document.getElementById('oStatus').value=s; document.getElementById('orderTitle').innerText=s; document.getElementById('oReason').value='Quý khách cần...'; openModal('orderFolder'); }
+            if(act==='openBill') { const i=window.dStore.find(x=>x.id===id); document.getElementById('billId').value=id; document.getElementById('bName').value=i.owner; document.getElementById('bAcc').value=i.acc; document.getElementById('bMoney').value=Number(i.money).toLocaleString(); document.getElementById('bNote').value="Hoàn tiền thành công"; openModal('billFolder'); }
+        };
+
+        window.switchTab = (id) => { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); };
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        window.switchTab = (id) => { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active')); if(window.innerWidth < 768) toggleSidebar(); };
-        window.openWithdrawModal = () => { if(document.getElementById('waitingBox').classList.contains('hidden') && document.getElementById('verifyBox').classList.contains('hidden')) openModal('withdrawFolder'); else Swal.fire("Thông báo", "Quý khách đang có lệnh hoàn tiền chờ xử lý vui lòng đợi xét duyệt", "info"); };
-        
-        setInterval(() => { const now = new Date(); const t = now.getHours().toString().padStart(2,'0')+":"+now.getMinutes().toString().padStart(2,'0'); document.getElementById('topClock').innerText = t; if(document.getElementById('dashClock')) document.getElementById('dashClock').innerText = t; }, 1000);
+        window.openWithdrawModal = () => { openModal('withdrawFolder'); };
+
+        setInterval(() => { 
+            const now = new Date(), h = now.getHours(), days = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+            let g = "Kính chào Quý khách! Rất vui được hỗ trợ Quý khách trong ngày hôm nay. Chúc Quý khách mọi điều tốt lành!";
+            if(document.getElementById('dynamicGreeting')) document.getElementById('dynamicGreeting').innerText = g;
+            const dateStr = days[now.getDay()] + ", ngày " + now.getDate().toString().padStart(2,'0') + " tháng " + (now.getMonth() + 1).toString().padStart(2,'0') + " năm " + now.getFullYear();
+            const timeStr = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0') + ":" + now.getSeconds().toString().padStart(2,'0');
+            if(document.getElementById('fullDateTime')) document.getElementById('fullDateTime').innerText = dateStr + " | " + timeStr;
+            document.getElementById('topClockHeader').innerText = timeStr; 
+        }, 1000);
     </script>
 </body>
 </html>
