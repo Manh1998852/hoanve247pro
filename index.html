@@ -78,7 +78,7 @@
         table { border-collapse: collapse; min-width: 1100px; width: 100%; table-layout: fixed; }
         th { background-color: #f4f4f4; border: 1px solid #ddd; padding: 12px 8px; font-weight: 700; text-transform: uppercase; font-size: 10px; color: #444; }
         td { border: 1px solid #ddd; padding: 10px 8px; font-size: 11px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .col-user { width: 110px; } .col-owner { width: 160px; } .col-bank { width: 110px; } .col-acc { width: 130px; } .col-code { width: 110px; } .col-money { width: 120px; } .col-time { width: 160px; } .col-status { width: 100px; } .col-action { width: 180px; }
+        .col-user { width: 110px; } .col-owner { width: 160px; } .col-bank { width: 110px; } .col-acc { width: 130px; } .col-code { width: 140px; } .col-money { width: 120px; } .col-time { width: 160px; } .col-status { width: 100px; } .col-action { width: 180px; }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 6000; align-items: center; justify-content: center; padding: 15px; }
         .modal.active { display: flex; }
         .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 450px; position: relative; border-top: 5px solid #3c8dbc; max-height: 90vh; overflow-y: auto; }
@@ -216,10 +216,9 @@
             } 
         }
         
-        // CẬP NHẬT HÀM ĐĂNG NHẬP: HIỆN CHỮ LỖI NGAY DƯỚI LOGIN
         async function handleLogin() {
             const errBox = document.getElementById('loginError');
-            errBox.classList.add('hidden'); // Reset ẩn thông báo trước khi check
+            errBox.classList.add('hidden'); 
             
             const uI = document.getElementById('lUser').value.trim().toLowerCase(), pI = document.getElementById('lPass').value.trim();
             const acc = window.uStore.find(x => x && x.user && x.user.toLowerCase() === uI);
@@ -300,7 +299,27 @@
                 let fU = window.uStore.find(u => u && u.id === i.userId);
                 let cD = i.creatorUser || (fU ? fU.user : "Khách");
                 if (window.curU.role === 'ADMIN') {
-                    return `<tr><td class="col-user text-indigo-700 font-bold">${cD}</td><td class="col-owner uppercase font-bold">${i.owner}</td><td class="col-bank">${i.bank}</td><td class="col-acc font-mono text-blue-600">${i.acc}</td><td class="col-code uppercase font-bold">${i.code} <i onclick="openUMFolder('editEO','${i.id}')" class="fas fa-edit text-blue-400 ml-1 cursor-pointer"></i></td><td class="col-money text-red-600 font-bold">${Number(i.money || 0).toLocaleString()}đ</td><td class="col-time">${i.time}</td><td class="text-center col-status"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500 animate-pulse':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-action text-center whitespace-nowrap"><button onclick="openUMFolder('openBill','${i.id}')" class="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold shadow">Bill</button><button onclick="openUMFolder('openO','${i.id}','TỪ CHỐI')" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow">Lỗi</button><button onclick="duplicateOrder('${i.id}')" class="bg-blue-500 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow"><i class="fas fa-copy"></i></button><button onclick="delO('${i.id}')" class="text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button></td></tr>`;
+                    return `<tr>
+                        <td class="col-user text-indigo-700 font-bold">${cD}</td>
+                        <td class="col-owner uppercase font-bold">${i.owner}</td>
+                        <td class="col-bank">${i.bank}</td>
+                        <td class="col-acc font-mono text-blue-600">${i.acc}</td>
+                        <td class="col-code uppercase font-bold">
+                            <div class="flex items-center justify-between w-full">
+                                <span class="truncate mr-1" title="${i.code}">${i.code}</span>
+                                <i onclick="openUMFolder('editEO','${i.id}')" class="fas fa-edit text-blue-400 cursor-pointer flex-shrink-0"></i>
+                            </div>
+                        </td>
+                        <td class="col-money text-red-600 font-bold">${Number(i.money || 0).toLocaleString()}đ</td>
+                        <td class="col-time">${i.time}</td>
+                        <td class="text-center col-status"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500 animate-pulse':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td>
+                        <td class="col-action text-center whitespace-nowrap">
+                            <button onclick="openUMFolder('openBill','${i.id}')" class="bg-green-600 text-white px-2 py-1 rounded text-[9px] font-bold shadow">Bill</button>
+                            <button onclick="openUMFolder('openO','${i.id}','TỪ CHỐI')" class="bg-red-600 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow">Lỗi</button>
+                            <button onclick="duplicateOrder('${i.id}')" class="bg-blue-500 text-white px-2 py-1 rounded text-[9px] font-bold ml-1 shadow"><i class="fas fa-copy"></i></button>
+                            <button onclick="delO('${i.id}')" class="text-red-500 ml-1"><i class="fas fa-trash-alt"></i></button>
+                        </td>
+                    </tr>`;
                 } else {
                     let v = (i.status !== 'ĐANG CHỜ');
                     return `<tr><td class="col-owner uppercase font-bold">${v?i.owner:'***'}</td><td class="col-bank">${v?i.bank:'***'}</td><td class="col-acc font-mono text-blue-600">${v?i.acc:'***'}</td><td class="col-code uppercase">${v?i.code:'***'}</td><td class="col-money text-red-600 font-bold">${v?Number(i.money || 0).toLocaleString()+'đ':'***'}</td><td class="col-time">${i.time}</td><td class="col-status text-center"><span class="px-2 py-0.5 rounded text-[10px] text-white font-bold ${i.status==='ĐANG CHỜ'?'bg-orange-500':(i.status==='ĐÃ DUYỆT'?'bg-green-600':'bg-red-600')}">${i.status}</span></td><td class="col-reason italic text-gray-400 text-[10px]">${i.reason}</td></tr>`;
